@@ -31,7 +31,7 @@ class Boomit {
 
 		this.window = SDL_CreateWindow("boomit", 0, 0, this.win_width, this.win_height, SDL_WINDOW_SHOWN);
 		this.renderer = SDL_CreateRenderer(this.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-		this.font = TTF_OpenFont("assets/SpaceMono-Regular.ttf", 80);
+		this.font = TTF_OpenFont("assets/zed-mono-regular.ttf", 80);
 
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
@@ -61,14 +61,28 @@ class Boomit {
 	}
 
 	public void render () {
+		char[2] cstring = ['0', '\0'];
+		SDL_Surface* surface = TTF_RenderText_Blended(font, cstring.ptr, SDL_Color(255, 255, 255, 255));
+		SDL_Texture* texture = SDL_CreateTextureFromSurface(this.renderer, surface);
+		SDL_FreeSurface(surface);
+		SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, 0, 20, 40));
+
 		int r;
-		int c;
+		int c = 2;
 		foreach (i, SDL_Texture* tex; texs) {
 			if (this.text[i] == '\n') {
 				r++;
-				c = -1;
+				c = 1;
+
+				cstring = [cast(char) (r + 48), '\0'];
+				surface = TTF_RenderText_Blended(font, cstring.ptr, SDL_Color(255, 255, 255, 255));
+				texture = SDL_CreateTextureFromSurface(this.renderer, surface);
+				SDL_FreeSurface(surface);
+				SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, r * 40, 20, 40));
 			}
-			SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(c * 20, r * 20, 20, 40));
+			else {
+				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(c * 20, r * 40, 20, 40));
+			}
 			c++;
 		}
 	}
