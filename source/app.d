@@ -99,6 +99,10 @@ void main () {
 				case SDL_KEYDOWN:
 					if (ev.key.keysym.sym == SDLK_BACKSPACE) boomit.delete_char();
 					else if (ev.key.keysym.sym == SDLK_RETURN) boomit.add_char('\n');
+					else if (ev.key.keysym.sym == SDLK_TAB) {
+						boomit.add_char(' ');
+						boomit.add_char(' ');
+					}
 					break;
 				default:
 					break;
