@@ -50,6 +50,11 @@ class Boomit {
 		this.texs ~= texture;
 	}
 
+	public void add_tab () {
+		this.add_char(' ');
+		this.add_char(' ');
+	}
+
 	public void delete_char () {
 		if (this.text.length < 1) return;
 		this.text = this.text[0 .. $ -1];
@@ -61,41 +66,49 @@ class Boomit {
 		}
 	}
 
-	private void draw_line_number (int n) {
-		string n_string = to!string(n);
+	private void draw_line_number (int row, int line) {
+		string n_string = to!string(line);
 		auto c_string = (n_string ~ '\0').ptr; 
 		SDL_Surface* surface = TTF_RenderText_Blended(font, c_string, SDL_Color(255, 255, 255, 255));
 		SDL_Texture* texture = SDL_CreateTextureFromSurface(this.renderer, surface);
 		SDL_FreeSurface(surface);
-		SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, n * 40, 20, 40));
+		SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, row * 40, 20, 40));
+	}
+
+	public void render_cursor (int row, int col) {
+		SDL_Rect cursor = {col * 20, row * 40, 3, 40};
+		SDL_SetRenderDrawColor(this.renderer, 255, 255, 255, 255);
+		SDL_RenderFillRect(this.renderer, &cursor);
 	}
 
 	public void render () {
-		this.draw_line_number(0);
+		this.draw_line_number(0, 0);
 
-		int row_real = 0;
-		int row_pseudo = 0;
-		int column = 2;
+		int row = 0; // row is the real row of the pixel coordinate system
+		int line = 0; // line is the line number that is displayed
+		int col = 2;
 
 		foreach (i, SDL_Texture* tex; texs) {
 			if (this.text[i] == '\n') {
-				row_real++;
-				row_pseudo = row_real;
-				column = 1;
+				line++;
+				row++;
+				col = 1;
 
-				this.draw_line_number(row_real);
+				this.draw_line_number(row, line);
 			}
-			else if (column == this.cols) {
-				row_pseudo++;
-				column = 2;
+			else if (col == this.cols) {
+				row++;
+				col = 2;
 
-				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(column * 20, row_pseudo * 40, 20, 40));
+				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(col * 20, row * 40, 20, 40));
 			}
 			else {
-				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(column * 20, row_pseudo * 40, 20, 40));
+				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(col * 20, row * 40, 20, 40));
 			}
-			column++;
+			col++;
 		}
+
+		this.render_cursor(row, col);
 	}
 
 	public void quit () {
@@ -124,10 +137,7 @@ void main () {
 				case SDL_KEYDOWN:
 					if (ev.key.keysym.sym == SDLK_BACKSPACE) boomit.delete_char();
 					else if (ev.key.keysym.sym == SDLK_RETURN) boomit.add_char('\n');
-					else if (ev.key.keysym.sym == SDLK_TAB) {
-						boomit.add_char(' ');
-						boomit.add_char(' ');
-					}
+					else if (ev.key.keysym.sym == SDLK_TAB) boomit.add_tab();
 					break;
 				default:
 					break;
