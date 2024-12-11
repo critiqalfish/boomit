@@ -8,6 +8,11 @@ import core.stdc.stdlib;
 import derelict.sdl2.sdl;
 import derelict.sdl2.ttf;
 
+struct Pos {
+	int row;
+	int col;
+}
+
 class Boomit {
 	public int win_width = 640;
 	public int win_height = 480;
@@ -18,8 +23,7 @@ class Boomit {
 	public SDL_Renderer* renderer;
 	public TTF_Font* font;
 
-	public int cursor_row = 0;
-	public int cursor_col = 2;
+	public int cursor_index = 0;
 
 	public Effect create_effect;
 
@@ -54,8 +58,28 @@ class Boomit {
 		this.create_effect = new Effect(this.renderer, "assets/create.bmp");
 	}
 
+	public Pos calculate_cursor_position () {
+        int row = 0;
+        int col = 2;
+
+        foreach (i; 0 .. this.cursor_index) {
+            if (this.text[i] == '\n') {
+                row++;
+                col = 2;
+            } else if (col == this.cols - 1) {
+                row++;
+                col = 2;
+            } else {
+                col++;
+            }
+        }
+
+        return Pos(row, col);
+    }
+
 	public void add_char (char c) {
 		this.text ~= c;
+		this.cursor_index++;
 
 		char[2] cstring = [c, '\0'];
 		SDL_Surface* surface = TTF_RenderText_Blended(this.font, cstring.ptr, SDL_Color(255, 255, 255, 255));
@@ -64,13 +88,8 @@ class Boomit {
 
 		this.texs ~= texture;
 
-		this.cursor_col++;
-		if (this.cursor_col == this.cols) {
-			this.cursor_col = 2;
-			this.cursor_row++;
-		}
-
-		this.create_effect.emit(cursor_col * 20, cursor_row * 40 + 10, 20);
+		Pos cur = this.calculate_cursor_position();
+		this.create_effect.emit(cur.col * 20, cur.row * 40 + 10, 20);
 	}
 
 	public void add_tab () {
@@ -79,19 +98,15 @@ class Boomit {
 	}
 
 	public void delete_char () {
+		if (this.cursor_index == 0) return;
 		if (this.text.length < 1) return;
 		this.text = this.text[0 .. $ -1];
+		this.cursor_index--;
 
 		SDL_Texture* lastTex = this.texs[$ - 1];
 		this.texs.popBack();
 		if (lastTex !is null) {
 			SDL_DestroyTexture(lastTex);
-		}
-
-		this.cursor_col--;
-		if (this.cursor_col == 1) {
-			this.cursor_col = this.cols;
-			this.cursor_row--;
 		}
 	}
 
@@ -104,8 +119,9 @@ class Boomit {
 		SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, row * 40, 20, 40));
 	}
 
-	public void render_cursor (int row, int col) {
-		SDL_Rect cursor = {col * 20, row * 40, 3, 40};
+	public void render_cursor () {
+		Pos cur = this.calculate_cursor_position();
+		SDL_Rect cursor = {cur.col * 20, cur.row * 40, 3, 40};
 		SDL_SetRenderDrawColor(this.renderer, 255, 255, 255, 255);
 		SDL_RenderFillRect(this.renderer, &cursor);
 	}
@@ -137,7 +153,7 @@ class Boomit {
 			col++;
 		}
 
-		this.render_cursor(row, col);
+		this.render_cursor();
 	}
 
 	public void quit () {
