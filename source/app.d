@@ -1,5 +1,6 @@
 import std.stdio;
 import std.array;
+import std.conv;
 import derelict.sdl2.sdl;
 import derelict.sdl2.ttf;
 
@@ -60,30 +61,40 @@ class Boomit {
 		}
 	}
 
-	public void render () {
-		char[2] cstring = ['0', '\0'];
-		SDL_Surface* surface = TTF_RenderText_Blended(font, cstring.ptr, SDL_Color(255, 255, 255, 255));
+	private void draw_line_number (int n) {
+		string n_string = to!string(n);
+		auto c_string = (n_string ~ '\0').ptr; 
+		SDL_Surface* surface = TTF_RenderText_Blended(font, c_string, SDL_Color(255, 255, 255, 255));
 		SDL_Texture* texture = SDL_CreateTextureFromSurface(this.renderer, surface);
 		SDL_FreeSurface(surface);
-		SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, 0, 20, 40));
+		SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, n * 40, 20, 40));
+	}
 
-		int r;
-		int c = 2;
+	public void render () {
+		this.draw_line_number(0);
+
+		int row_real = 0;
+		int row_pseudo = 0;
+		int column = 2;
+
 		foreach (i, SDL_Texture* tex; texs) {
 			if (this.text[i] == '\n') {
-				r++;
-				c = 1;
+				row_real++;
+				row_pseudo = row_real;
+				column = 1;
 
-				cstring = [cast(char) (r + 48), '\0'];
-				surface = TTF_RenderText_Blended(font, cstring.ptr, SDL_Color(255, 255, 255, 255));
-				texture = SDL_CreateTextureFromSurface(this.renderer, surface);
-				SDL_FreeSurface(surface);
-				SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, r * 40, 20, 40));
+				this.draw_line_number(row_real);
+			}
+			else if (column == this.cols) {
+				row_pseudo++;
+				column = 2;
+
+				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(column * 20, row_pseudo * 40, 20, 40));
 			}
 			else {
-				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(c * 20, r * 40, 20, 40));
+				SDL_RenderCopy(this.renderer, tex, null, new SDL_Rect(column * 20, row_pseudo * 40, 20, 40));
 			}
-			c++;
+			column++;
 		}
 	}
 
