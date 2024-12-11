@@ -1,6 +1,10 @@
 import std.stdio;
 import std.array;
 import std.conv;
+import std.math;
+import std.random;
+import std.algorithm;
+import core.stdc.stdlib;
 import derelict.sdl2.sdl;
 import derelict.sdl2.ttf;
 
@@ -13,6 +17,11 @@ class Boomit {
 	public SDL_Window* window;
 	public SDL_Renderer* renderer;
 	public TTF_Font* font;
+
+	public int cursor_row = 0;
+	public int cursor_col = 2;
+
+	public Effect create_effect;
 
 	this() {
 		this.cols = this.win_width / 20;
@@ -37,17 +46,31 @@ class Boomit {
 		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
 		SDL_StartTextInput();
+
+		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+	}
+
+	public void init_FX () {
+		this.create_effect = new Effect(this.renderer, "assets/create.bmp");
 	}
 
 	public void add_char (char c) {
 		this.text ~= c;
 
 		char[2] cstring = [c, '\0'];
-		SDL_Surface* surface = TTF_RenderText_Blended(font, cstring.ptr, SDL_Color(255, 255, 255, 255));
+		SDL_Surface* surface = TTF_RenderText_Blended(this.font, cstring.ptr, SDL_Color(255, 255, 255, 255));
 		SDL_Texture* texture = SDL_CreateTextureFromSurface(this.renderer, surface);
 		SDL_FreeSurface(surface);
 
 		this.texs ~= texture;
+
+		this.cursor_col++;
+		if (this.cursor_col == this.cols) {
+			this.cursor_col = 2;
+			this.cursor_row++;
+		}
+
+		this.create_effect.emit(cursor_col * 20, cursor_row * 40 + 10, 20);
 	}
 
 	public void add_tab () {
@@ -63,6 +86,12 @@ class Boomit {
 		this.texs.popBack();
 		if (lastTex !is null) {
 			SDL_DestroyTexture(lastTex);
+		}
+
+		this.cursor_col--;
+		if (this.cursor_col == 1) {
+			this.cursor_col = this.cols;
+			this.cursor_row--;
 		}
 	}
 
@@ -119,9 +148,77 @@ class Boomit {
 	}
 }
 
+struct Particle {
+	float x, y;
+	int w, h;
+	float vx, vy;
+	float scale;
+	float alpha;
+	float lifetime;
+	SDL_Texture* tex;
+}
+
+class Effect {
+	SDL_Texture* tex;
+	Particle[] particles;
+
+	this(SDL_Renderer* renderer, string path) {
+        SDL_Surface* surface = SDL_LoadBMP(path.ptr);
+        this.tex = SDL_CreateTextureFromSurface(renderer, surface);
+        SDL_FreeSurface(surface);
+    }
+
+    void emit(float x, float y, int count) {
+        foreach (i; 0 .. count) {
+            float angle = cast(float) (rand() % 360) * PI / 180;
+            float speed = 50 + rand() % 100;
+            particles ~= Particle(
+                x: x,
+                y: y,
+				w: 32,
+				h: 32,
+                vx: speed * cos(angle),
+                vy: speed * sin(angle),
+                scale: 0.5 + cast(float) (rand() % 50) / 100.0,
+                alpha: 1.0,
+                lifetime: 0.5,
+                tex: tex
+            );
+        }
+    }
+
+    void update(float deltaTime) {
+        this.particles = this.particles.filter!(p => p.lifetime > 0).array;
+        foreach (ref particle; particles) {
+            particle.x += particle.vx * deltaTime;
+            particle.y += particle.vy * deltaTime;
+            particle.lifetime -= deltaTime;
+            particle.alpha *= particle.lifetime * 2;
+        }
+    }
+
+    void render(SDL_Renderer* renderer) {
+        foreach (particle; particles) {
+            SDL_SetTextureAlphaMod(particle.tex, cast(Uint8)(particle.alpha * 255));
+            SDL_Rect dstRect = SDL_Rect(
+                cast(int)(particle.x),
+                cast(int)(particle.y),
+                cast(int)(particle.w * particle.scale),
+                cast(int)(particle.h * particle.scale)
+            );
+            SDL_RenderCopy(renderer, particle.tex, null, &dstRect);
+        }
+    }
+
+    ~this() {
+        SDL_DestroyTexture(this.tex);
+    }
+}
+
 void main () {
 	Boomit boomit = new Boomit();
 	boomit.init_SDL();
+	boomit.init_FX();
 
 	bool run = true;
 	while (run) {
@@ -144,10 +241,12 @@ void main () {
 			}
 		}
 
-		SDL_SetRenderDrawColor(boomit.renderer, 24, 24, 24, 24);
+		SDL_SetRenderDrawColor(boomit.renderer, 24, 24, 24, 255);
 		SDL_RenderClear(boomit.renderer);
 
 		boomit.render();
+		boomit.create_effect.update(1.0 / 60.0);
+		boomit.create_effect.render(boomit.renderer);
 
 		SDL_RenderPresent(boomit.renderer);
 
