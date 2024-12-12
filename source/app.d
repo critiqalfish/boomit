@@ -91,7 +91,7 @@ class Boomit {
 		this.texs = this.texs[0 .. cursor_index - 1] ~ texture ~ this.texs[cursor_index - 1 .. $];
 
 		Pos cur = this.calculate_cursor_position();
-		this.create_effect.emit(cur.col * 20, cur.row * 40 + 10, 30);
+		this.create_effect.emit(cur.col * 20 - 20, cur.row * 40 + 5, 30);
 	}
 
 	public void add_tab () {
@@ -210,10 +210,10 @@ class Effect {
     void emit(float x, float y, int count) {
         foreach (i; 0 .. count) {
             float angle = cast(float) (rand() % 360) * PI / 180;
-            float speed = 100 + rand() % 100;
+            float speed = 200 + rand() % 100;
             particles ~= Particle(
-                x: x,
-                y: y,
+                x: x + rand() % 10,
+                y: y + rand() % 10,
 				w: 32,
 				h: 32,
                 vx: speed * cos(angle),
