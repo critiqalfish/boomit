@@ -1,7 +1,9 @@
 import std.stdio;
 import std.array;
 import std.conv;
+import std.uni;
 import std.math;
+import std.range;
 import std.random;
 import std.algorithm;
 import core.stdc.stdlib;
@@ -55,7 +57,7 @@ class Boomit {
 	}
 
 	public void init_FX () {
-		this.create_effect = new Effect(this.renderer, "assets/create.bmp");
+		this.create_effect = new Effect(this.renderer, "assets/create_particle.bmp");
 	}
 
 	public Pos calculate_cursor_position () {
@@ -78,7 +80,7 @@ class Boomit {
     }
 
 	public void add_char (char c) {
-		this.text ~= c;
+		this.text = this.text[0 .. cursor_index] ~ c ~ this.text[cursor_index .. $];
 		this.cursor_index++;
 
 		char[2] cstring = [c, '\0'];
@@ -86,10 +88,10 @@ class Boomit {
 		SDL_Texture* texture = SDL_CreateTextureFromSurface(this.renderer, surface);
 		SDL_FreeSurface(surface);
 
-		this.texs ~= texture;
+		this.texs = this.texs[0 .. cursor_index - 1] ~ texture ~ this.texs[cursor_index - 1 .. $];
 
 		Pos cur = this.calculate_cursor_position();
-		this.create_effect.emit(cur.col * 20, cur.row * 40 + 10, 20);
+		this.create_effect.emit(cur.col * 20, cur.row * 40 + 10, 30);
 	}
 
 	public void add_tab () {
@@ -100,13 +102,34 @@ class Boomit {
 	public void delete_char () {
 		if (this.cursor_index == 0) return;
 		if (this.text.length < 1) return;
-		this.text = this.text[0 .. $ -1];
+		this.text = this.text[0 .. this.cursor_index - 1] ~ this.text[cursor_index .. $];
 		this.cursor_index--;
 
-		SDL_Texture* lastTex = this.texs[$ - 1];
-		this.texs.popBack();
-		if (lastTex !is null) {
-			SDL_DestroyTexture(lastTex);
+		SDL_Texture* deleteTex = this.texs[this.cursor_index];
+		this.texs = this.texs[0 .. this.cursor_index] ~ this.texs[cursor_index + 1 .. $];
+		if (deleteTex !is null) {
+			SDL_DestroyTexture(deleteTex);
+		}
+	}
+
+	public void cursor_move(SDL_Keycode code) {
+		switch (code) {
+		case SDLK_UP:
+			break;
+		case SDLK_DOWN:
+			break;
+		case SDLK_LEFT:
+			if (this.cursor_index > 0) {
+				this.cursor_index--;
+			}
+			break;
+		case SDLK_RIGHT:
+			if (this.texs.length > this.cursor_index) {
+				this.cursor_index++;
+			}
+			break;
+		default:
+			break;
 		}
 	}
 
@@ -119,7 +142,7 @@ class Boomit {
 		SDL_RenderCopy(this.renderer, texture, null, new SDL_Rect(0, row * 40, 20, 40));
 	}
 
-	public void render_cursor () {
+	private void render_cursor () {
 		Pos cur = this.calculate_cursor_position();
 		SDL_Rect cursor = {cur.col * 20, cur.row * 40, 3, 40};
 		SDL_SetRenderDrawColor(this.renderer, 255, 255, 255, 255);
@@ -187,7 +210,7 @@ class Effect {
     void emit(float x, float y, int count) {
         foreach (i; 0 .. count) {
             float angle = cast(float) (rand() % 360) * PI / 180;
-            float speed = 50 + rand() % 100;
+            float speed = 100 + rand() % 100;
             particles ~= Particle(
                 x: x,
                 y: y,
@@ -251,6 +274,7 @@ void main () {
 					if (ev.key.keysym.sym == SDLK_BACKSPACE) boomit.delete_char();
 					else if (ev.key.keysym.sym == SDLK_RETURN) boomit.add_char('\n');
 					else if (ev.key.keysym.sym == SDLK_TAB) boomit.add_tab();
+					else if (ev.key.keysym.sym == SDLK_UP || ev.key.keysym.sym == SDLK_DOWN || ev.key.keysym.sym == SDLK_LEFT || ev.key.keysym.sym == SDLK_RIGHT) boomit.cursor_move(ev.key.keysym.sym);
 					break;
 				default:
 					break;
